@@ -567,6 +567,76 @@ impl LpImageWindow {
         }
     }
 
+    /// Open the current image in the external editor configured in Preferences.
+    async fn open_in_editor(&self) {
+        let Some(file) = self.imp().image_view.current_file() else {
+            tracing::error!("Could not load a path for the current image.");
+            return;
+        };
+
+        let settings = LpApplication::default().settings();
+        let app_id = settings.string("external-editor");
+
+        if app_id.is_empty() {
+            self.window_show_toast(
+                &gettext("Choose an image editor in Preferences"),
+                adw::ToastPriority::High,
+            );
+            let _ = self.activate_action("app.preferences", None);
+            return;
+        }
+
+        let Some(app_info) = gio::AppInfo::all()
+            .into_iter()
+            .find(|app| app.id().is_some_and(|id| id.as_str() == app_id.as_str()))
+        else {
+            tracing::error!("Could not find external editor: {}", app_id);
+            self.window_show_toast(
+                &gettext("The configured image editor is not available"),
+                adw::ToastPriority::High,
+            );
+            return;
+        };
+
+        if settings.boolean("external-editor-confirm") {
+            let app_name = app_info.display_name();
+            let dialog = adw::AlertDialog::builder()
+                .heading(gettext("Open in External Editor?"))
+                .body(format!(
+                    "{}\n{}",
+                    gettext_f("Open image with “{}”?", [&app_name]),
+                    gettext("The current image viewer window will be closed."),
+                ))
+                .build();
+
+            dialog.add_response("cancel", &gettext("Cancel"));
+            dialog.add_response("open", &gettext("Open"));
+            dialog.set_response_appearance("open", adw::ResponseAppearance::Suggested);
+
+            let res = dialog.choose_future(self.try_window().as_ref()).await;
+            if res.as_str() != "open" {
+                return;
+            }
+        }
+
+        let files = [file];
+        let context = self.display().app_launch_context();
+
+        match app_info.launch(&files, Some(&context)) {
+            Ok(()) => {
+                tracing::debug!("Launched external editor, closing image viewer window.");
+                self.window_inspect(|w| w.close());
+            }
+            Err(err) => {
+                tracing::error!("Could not open image in external editor: {}", err);
+                self.window_show_toast(
+                    &gettext("Could not open the image in the external editor"),
+                    adw::ToastPriority::High,
+                );
+            }
+        }
+    }
+
     fn rotate_image(&self, angle: f64) {
         self.imp().image_view.rotate_image(angle)
     }
@@ -784,6 +854,7 @@ impl LpImageWindow {
             Action::ToggleProperties,
             Action::Reload,
             Action::ToggleFullscreen,
+            Action::EditExternal,
         ];
 
         let enabled_current = self.imp().image_view.current_page().is_some();

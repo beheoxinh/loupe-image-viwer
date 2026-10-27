@@ -91,6 +91,8 @@ pub enum Action {
     Reload,
     #[strum(to_string = "win.edit")]
     Edit,
+    #[strum(to_string = "win.edit-external")]
+    EditExternal,
 }
 
 impl Action {
@@ -293,6 +295,12 @@ impl Action {
                         obj.window_inspect(|w| w.show_edit());
                     });
                 }
+
+                Action::EditExternal => {
+                    klass.install_action_async(&action, None, move |obj, _, _| async move {
+                        obj.open_in_editor().await;
+                    });
+                }
             }
         }
     }
@@ -371,6 +379,7 @@ impl Action {
             Action::ToggleProperties => &[(Key::F9, &[]), (Key::Return, &[ModifierType::ALT_MASK])],
             Action::Reload => &[(Key::F5, &[])],
             Action::Edit => &[(Key::e, &[])],
+            Action::EditExternal => &[(Key::e, &[ModifierType::CONTROL_MASK])],
             _ => &[],
         }
     }

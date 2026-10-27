@@ -4,3 +4,5 @@ _build/
 target
 .flatpak-builder
 .fenv
+build/
+.install-state/

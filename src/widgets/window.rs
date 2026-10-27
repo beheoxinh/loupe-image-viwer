@@ -25,6 +25,7 @@ use gtk::CompositeTemplate;
 use strum::IntoEnumIterator;
 
 use super::LpErrorDetails;
+use crate::application::LpApplication;
 use crate::config;
 use crate::deps::*;
 use crate::util::gettext::*;
@@ -34,8 +35,13 @@ use crate::widgets::{LpEditWindow, LpImageView, LpImageWindow};
 /// Show window after X milliseconds even if image dimensions are not known yet
 const SHOW_WINDOW_AFTER: u64 = 2000;
 
+/// Window size used on first start, before the user has resized the window.
+const DEFAULT_WINDOW_WIDTH: i32 = 1000;
+const DEFAULT_WINDOW_HEIGHT: i32 = 700;
+
 mod imp {
     use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
 
     use super::*;
 
@@ -75,6 +81,11 @@ mod imp {
         layout_name: RefCell<String>,
         #[property(get, set)]
         not_fullscreened: Cell<bool>,
+
+        /// Pending timeout that saves the window size after the user stops resizing.
+        /// The flag tracks whether the one-shot timeout already fired, because
+        /// `SourceId::remove()` panics for sources that no longer exist.
+        size_save_timeout: RefCell<Option<(glib::SourceId, Rc<Cell<bool>>)>>,
     }
 
     #[glib::object_subclass]
@@ -92,6 +103,15 @@ mod imp {
 
             // Don't use an action since we want to control propagation
             klass.add_binding(gdk::Key::c, gdk::ModifierType::CONTROL_MASK, |window| {
+                let stack = &window.imp().stack;
+                let edit_child = &*window.imp().edit_window_child;
+                if stack.visible_child().as_ref() == Some(edit_child.upcast_ref()) {
+                    if let Some(edit_window) = window.edit_window() {
+                        edit_window.copy_to_clipboard();
+                        return glib::Propagation::Stop;
+                    }
+                }
+
                 let image_window = window.image_window();
                 if image_window.has_metadata_selected() {
                     // Pass on to normal copy handler to copy selected metadata
@@ -147,13 +167,46 @@ mod imp {
                 ),
             );
 
-            obj.connect_map(|win| {
-                win.resize_default();
-            });
+            obj.resize_default();
+
+            if LpApplication::default()
+                .settings()
+                .boolean("window-maximized")
+            {
+                obj.maximize();
+            }
         }
     }
 
-    impl WidgetImpl for LpWindow {}
+    impl WidgetImpl for LpWindow {
+        fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+            self.parent_size_allocate(width, height, baseline);
+
+            if self.obj().is_maximized() || self.obj().is_fullscreen() {
+                return;
+            }
+
+            if let Some((source, fired)) = self.size_save_timeout.take() {
+                if !fired.get() {
+                    source.remove();
+                }
+            }
+
+            let fired = Rc::new(Cell::new(false));
+            let fired_for_timeout = fired.clone();
+            let obj = self.obj().downgrade();
+            let source = glib::timeout_add_local_once(
+                std::time::Duration::from_millis(500),
+                move || {
+                    fired_for_timeout.set(true);
+                    if let Some(window) = obj.upgrade() {
+                        window.save_window_size();
+                    }
+                },
+            );
+            self.size_save_timeout.replace(Some((source, fired)));
+        }
+    }
     impl WindowImpl for LpWindow {}
     impl ApplicationWindowImpl for LpWindow {}
     impl AdwApplicationWindowImpl for LpWindow {}
@@ -161,6 +214,7 @@ mod imp {
     impl LpWindow {
         pub fn close_request(&self) {
             let obj = self.obj().to_owned();
+            obj.save_window_size();
             glib::MainContext::default().spawn_local(async move {
                 if let Some(edit_window) = obj.edit_window() {
                     if matches!(edit_window.ensure_saved().await, glib::Propagation::Proceed) {
@@ -197,37 +251,72 @@ impl LpWindow {
             .and_then(|w| w.downcast::<LpEditWindow>().ok())
     }
 
+    /// Apply the last saved window size.
+    ///
+    /// Unlike the previous behavior, the window is not sized to the image's
+    /// natural size. It opens with the size the user last chose, so resizing
+    /// behaves like a regular desktop image viewer.
     pub fn resize_default(&self) {
-        let imp = self.imp();
+        let settings = LpApplication::default().settings();
+        let saved_width = settings.int("window-width");
+        let saved_height = settings.int("window-height");
 
-        if self
-            .image_view()
-            .current_image()
-            .is_some_and(|img| img.image_size_available())
-        {
-            let shows_properties = imp.image_window.properties_button().is_active();
+        let (mut width, height) = if saved_width > 0 && saved_height > 0 {
+            (saved_width, saved_height)
+        } else {
+            (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        };
 
-            let (_, window_natural_width, _, _) = self.measure(gtk::Orientation::Horizontal, -1);
-            let (_, window_natural_height, _, _) = self.measure(gtk::Orientation::Vertical, -1);
+        // Keep the properties sidebar out of the overlay/bottom-sheet mode on
+        // first run, when no window size has been saved yet.
+        if saved_width <= 0 || saved_height <= 0 {
+            let shows_properties = settings.boolean("show-properties")
+                || self.image_window().properties_button().is_active();
 
             // These have to be in sync with the "conditions" for the "overlay-properties"
             // breakpoint
             let min_width_for_overlay = adw::LengthUnit::Sp.to_px(590., None).ceil() as i32;
             let min_height_for_overlay = adw::LengthUnit::Sp.to_px(550., None).ceil() as i32;
 
-            let (width, height) = if shows_properties
-                && window_natural_width < min_width_for_overlay
-                && window_natural_height < min_height_for_overlay
+            if shows_properties && width < min_width_for_overlay && height < min_height_for_overlay
             {
                 // Avoid overlaying bottom sheet being triggered for the image properties by
                 // using a window wide enough to allow for a sidebar
-                (min_width_for_overlay.saturating_add(1), -1)
-            } else {
-                // this lets the window determine the default size from LpImage's natural size
-                (-1, -1)
-            };
+                width = min_width_for_overlay.saturating_add(1);
+            }
+        }
 
-            self.set_default_size(width, height);
+        self.set_default_size(width, height);
+    }
+
+    /// Persist the current window size so the next window opens with it.
+    pub fn save_window_size(&self) {
+        let settings = LpApplication::default().settings();
+        let maximized = self.is_maximized();
+
+        if let Err(err) = settings.set_boolean("window-maximized", maximized) {
+            tracing::warn!("Failed to save window maximized state: {}", err);
+        }
+
+        if maximized || self.is_fullscreen() {
+            return;
+        }
+
+        // Use the GdkSurface size instead of the widget allocation. GTK reserves
+        // shadow margins, so `self.width()` is ~10px smaller than the visible
+        // window and would shrink the window on every restart.
+        let (width, height) = match self.native().and_then(|native| native.surface()) {
+            Some(surface) => (surface.width(), surface.height()),
+            None => (self.width(), self.height()),
+        };
+
+        if width > 1 && height > 1 {
+            if let Err(err) = settings.set_int("window-width", width) {
+                tracing::warn!("Failed to save window width: {}", err);
+            }
+            if let Err(err) = settings.set_int("window-height", height) {
+                tracing::warn!("Failed to save window height: {}", err);
+            }
         }
     }
 

@@ -1,3 +1,94 @@
 .saving-overlay {
   background: rgba(25, 25, 25, 0.8);
 }
+
+/* Vertical toolbar on the left edge of the drawing canvas. The fixed width
+   keeps the column from growing when a button's icon or a label is wider than
+   the rest. */
+.draw-sidebar {
+  background-color: var(--headerbar-bg-color, @headerbar_bg_color);
+  border-right: 1px solid var(--border-color, alpha(currentColor, 0.15));
+  min-width: 56px;
+}
+
+/* Tool buttons must stay perfectly square and all the same size. A vertical
+   `GtkBox` stretches each child to the full column width, and a button otherwise
+   sizes itself to its icon, so without this the buttons come out wider than
+   they are tall. `padding: 0` matters too: a theme's button padding is added
+   around the minimum, which would make the square lopsided.
+   `GtkMenuButton` wraps its own inner `button`, which needs the same rule. */
+.square-buttons button,
+.square-buttons menubutton,
+.square-buttons menubutton > button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+}
+
+.square-buttons button > widget,
+.square-buttons menubutton > button > widget {
+  -gtk-icon-size: 18px;
+}
+
+/* Colour, line width and the fill toggle live in the bar along the bottom of
+   the canvas, so they can no longer stretch the tool columns. */
+.draw-statusbar {
+  background-color: var(--headerbar-bg-color, @headerbar_bg_color);
+  border-top: 1px solid var(--border-color, alpha(currentColor, 0.15));
+}
+
+/* One row height for everything in the bar, so the controls line up instead of
+   each taking its own natural size. `GtkColorDialogButton` wraps a
+   `button.color`, whose padding the theme sets, hence both nodes. */
+.draw-statusbar button,
+.draw-statusbar colorbutton,
+.draw-statusbar colorbutton > button {
+  min-height: 30px;
+}
+
+.draw-statusbar colorbutton,
+.draw-statusbar colorbutton > button {
+  padding: 0;
+}
+
+.draw-statusbar spinbutton {
+  min-height: 30px;
+}
+
+/* Recent color buttons */
+.draw-statusbar button.recent-color-btn {
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, alpha(currentColor, 0.25));
+}
+
+.draw-statusbar button.recent-color-btn:hover {
+  border-color: var(--accent-color, #3584e4);
+}
+
+/* Zoom controls */
+.draw-statusbar .zoom-btn {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px 6px;
+}
+
+.draw-statusbar .zoom-level-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 44px;
+}
+
+.sidebar-heading {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}

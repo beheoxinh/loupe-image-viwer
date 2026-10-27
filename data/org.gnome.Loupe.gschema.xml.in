@@ -5,5 +5,29 @@
       <default>false</default>
       <summary>Show the image properties sidebar</summary>
     </key>
+    <key name="external-editor" type="s">
+      <default>''</default>
+      <summary>Desktop ID of the external image editor</summary>
+      <description>Application launched by the "Edit in External App" action. An empty value asks every time.</description>
+    </key>
+    <key name="external-editor-confirm" type="b">
+      <default>false</default>
+      <summary>Ask for confirmation before opening in external editor</summary>
+      <description>Whether to show a confirmation dialog before launching the external editor and closing Loupe.</description>
+    </key>
+    <key name="window-width" type="i">
+      <default>-1</default>
+      <summary>Last window width</summary>
+      <description>Width of the last resized window. A value of -1 means no size has been saved yet.</description>
+    </key>
+    <key name="window-height" type="i">
+      <default>-1</default>
+      <summary>Last window height</summary>
+      <description>Height of the last resized window. A value of -1 means no size has been saved yet.</description>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Whether the window was maximized</summary>
+    </key>
   </schema>
 </schemalist>

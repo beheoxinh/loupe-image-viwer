@@ -17,9 +17,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-pub mod edit;
 
 mod drag_overlay;
+mod draw;
 mod edit_window;
 mod error_details;
 mod image;
@@ -34,6 +34,7 @@ mod sliding_view;
 mod window;
 
 pub use drag_overlay::LpDragOverlay;
+pub use draw::{DrawFilter, DrawTool, LpDrawCanvas};
 pub use edit_window::LpEditWindow;
 pub use error_details::LpErrorDetails;
 pub use image::LpImage;

@@ -17,6 +17,14 @@
         <attribute name="action">win.open-with</attribute>
       </item>
       <item>
+        <attribute name="label" translatable="yes">_Edit Image</attribute>
+        <attribute name="action">win.edit</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Edit with External _Tool</attribute>
+        <attribute name="action">win.edit-external</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes">_Print…</attribute>
         <attribute name="action">win.print</attribute>
       </item>
@@ -39,6 +47,12 @@
       <item>
         <attribute name="label" translatable="yes">_Delete</attribute>
         <attribute name="action">win.trash</attribute>
+      </item>
+    </section>
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Preferences</attribute>
+        <attribute name="action">app.preferences</attribute>
       </item>
     </section>
     <section>
@@ -128,8 +142,15 @@
                 <child type="end">
                   <object class="GtkButton">
                     <property name="action-name">win.edit</property>
-                    <property name="icon-name">crop-symbolic</property>
+                    <property name="icon-name">document-edit-symbolic</property>
                     <property name="tooltip-text" translatable="yes">Edit Image</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkButton">
+                    <property name="action-name">win.edit-external</property>
+                    <property name="icon-name">applications-graphics-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Edit with External Tool</property>
                   </object>
                 </child>
                 <child>

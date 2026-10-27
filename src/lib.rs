@@ -36,11 +36,9 @@ Simplified widget arrangement including the most important widgets.
                         -   [`LpImage`]
                 -   …
     -   [`LpEditWindow`]
-        - [`LpEditCrop`]
 
 
 [`GtkScrolledWindow`]: gtk::ScrolledWindow
-[`LpEditCrop`]: widgets::edit::LpEditCrop
 [`LpEditWindow`]: widgets::LpEditWindow
 [`LpImagePage`]: widgets::LpImagePage
 [`LpImageView`]: widgets::LpImageView
@@ -66,7 +64,7 @@ pub mod util;
 pub mod widgets;
 
 mod deps {
-    pub use gtk::{cairo, gdk, gio, glib, graphene, gsk};
+    pub use gtk::{cairo, gdk, gdk_pixbuf, gio, glib, graphene, gsk};
 }
 
 use application::LpApplication;
